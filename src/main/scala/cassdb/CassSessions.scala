@@ -44,23 +44,39 @@ object CassSessionInstance extends CassSession{
   private val ses :CqlSession = createSession(node,dc)
   log.info("CassSessionInstance session is connected = " + !ses.isClosed)
 
+  /**
+   * This is a potential what we can read and calculate.
+  */
   private val prepBarsFAMeta :BoundStatement = prepareSql(ses,sqlBarsFAMeta)
+
+  /**
+   * This is what we already have and can continue calculation.
+  */
+  private val prepBarsFormsMaxDdate :BoundStatement = prepareSql(ses,sqlBarsFormsMaxDdate)
 
   implicit def LocalDateToOpt(v :LocalDate) :Option[LocalDate] = Option(v)
 
-  private val rowToBarData : Row => barsFaMeta =
+  private val rowTo
+
+  private val rowToFaMeta : Row => barsFaMeta = {
     (row: Row) =>
-      barsFaMeta(
-        row.getInt("ticker_id"),
-        row.getInt("bar_width_sec"),
-        row.getLocalDate("ddate")
-      )
+       val tickerId :Int = row.getInt("ticker_id")
+       val bws :Int =  row.getInt("bar_width_sec")
+       val ddate :LocalDate =  row.getLocalDate("ddate")
+
+    barsFaMeta(
+      tickerId,
+      bws,
+      ddate
+    )
+
+  }
 
   def isSesCloses :Boolean = ses.isClosed
 
   def dbReadTickersDict(formDeepKoeff :Int, intervalNewGroupKoeff :Int, thisPrcnt :Double, thisSw :String) :Seq[barsFaMeta] =
               ses.execute(prepBarsFAMeta).all
-                .iterator.asScala.toSeq.map(r => rowToBarData(r))
+                .iterator.asScala.toSeq.map(r => rowToFaMeta(r))
 
 }
 
