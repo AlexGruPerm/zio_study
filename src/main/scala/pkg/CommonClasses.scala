@@ -2,26 +2,46 @@ package pkg
 
 import java.time.LocalDate
 
+import pkg.common.maxFormDateTs
+
 object common {
-  type readFrom = (Option[LocalDate], Option[Long])
+  type maxFormDateTs = Option[(LocalDate,Long)]
 }
 
-case class barsFaMeta(
-                       tickerId       :Int,
-                       barWidthSec    :Int,
-                       dDate          :LocalDate,
-                       formDeepKoeff  :Int,
-                       intNewGrpKoeff :Int,
-                       percentLogOE   :Double,
-                       formWayType    :String
+case class ControlParams(formDeepKoeff :Int,
+                         intervalNewGroupKoeff :Int,
+                         percent :Double,
+                         resType :String
+                        )
+
+case class barsFaSourceMeta(
+                            tickerId       :Int,
+                            barWidthSec    :Int
+                           )
+
+case class BarFaMeta(
+                     tickerId       :Int,
+                     barWidthSec    :Int,
+                     formDeepKoeff  :Int,
+                     intNewGrpKoeff :Int,
+                     percentLogOE   :Double,
+                     resType        :String,
+                     readFrom       :maxFormDateTs
                      )
+object BarFaMeta{
+  def apply(bFaSrcMeta :barsFaSourceMeta, cp :ControlParams, readFrom  :maxFormDateTs) :BarFaMeta ={
+    new BarFaMeta(bFaSrcMeta.tickerId, bFaSrcMeta.barWidthSec, cp.formDeepKoeff, cp.intervalNewGroupKoeff,
+      cp.percent, cp.resType, readFrom)
+  }
+}
+
 
 /**
  * result of calculation for each iteration: ticker,bws,....
  * in run method of main application returned as Seq[calcResInfo]
 */
 case class calcResInfo(
-                        barsMeta     :barsFaMeta,
+                        barsMeta     :BarFaMeta,
                         insertedRows :Int
                       )
 

@@ -8,7 +8,7 @@ import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.cql.{BoundStatement, Row}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.LoggerFactory
-import pkg.barsFaMeta
+import pkg.{ControlParams, BarFaMeta, barsFaSourceMeta}
 
 import scala.collection.JavaConverters._
 
@@ -44,39 +44,35 @@ object CassSessionInstance extends CassSession{
   private val ses :CqlSession = createSession(node,dc)
   log.info("CassSessionInstance session is connected = " + !ses.isClosed)
 
-  /**
-   * This is a potential what we can read and calculate.
-  */
-  private val prepBarsFAMeta :BoundStatement = prepareSql(ses,sqlBarsFAMeta)
-
-  /**
-   * This is what we already have and can continue calculation.
-  */
-  private val prepBarsFormsMaxDdate :BoundStatement = prepareSql(ses,sqlBarsFormsMaxDdate)
-
-  implicit def LocalDateToOpt(v :LocalDate) :Option[LocalDate] = Option(v)
-
-  private val rowTo
-
-  private val rowToFaMeta : Row => barsFaMeta = {
-    (row: Row) =>
-       val tickerId :Int = row.getInt("ticker_id")
-       val bws :Int =  row.getInt("bar_width_sec")
-       val ddate :LocalDate =  row.getLocalDate("ddate")
-
-    barsFaMeta(
-      tickerId,
-      bws,
-      ddate
-    )
-
-  }
-
   def isSesCloses :Boolean = ses.isClosed
 
-  def dbReadTickersDict(formDeepKoeff :Int, intervalNewGroupKoeff :Int, thisPrcnt :Double, thisSw :String) :Seq[barsFaMeta] =
-              ses.execute(prepBarsFAMeta).all
-                .iterator.asScala.toSeq.map(r => rowToFaMeta(r))
+  //This is a potential what we can read and calculate.
+  private val prepBarsSourceFAMeta :BoundStatement = prepareSql(ses,sqlBarsFAMeta)
+  //This is what we already have and can continue calculation.
+  private val prepBarsFormsMaxDdate :BoundStatement = prepareSql(ses,sqlBarsFormsMaxDdate)
+
+  private val rowToFaSourceMeta : Row => barsFaSourceMeta =
+    row => barsFaSourceMeta(row.getInt("ticker_id"),
+                            row.getInt("bar_width_sec"))
+
+  private def readFormsMaxDateTs(bFaSrcMeta :barsFaSourceMeta, cp: ControlParams) :BarFaMeta = {
+    val row = ses.execute(prepBarsFormsMaxDdate
+      .setInt("p_ticker_id", bFaSrcMeta.tickerId)
+      .setInt("p_bar_width_sec", bFaSrcMeta.barWidthSec)
+      .setInt("p_formdeepkoef", cp.formDeepKoeff)
+      .setDouble("p_log_oe", cp.percent)
+      .setString("p_res_type", cp.resType)
+    ).one()
+    if (row.getLong("ts_end")==0L)
+      BarFaMeta(bFaSrcMeta, cp, None)
+    else
+      BarFaMeta(bFaSrcMeta, cp, Some(row.getLocalDate("ddate"), row.getLong("ts_end")))
+  }
+
+  def dbReadBarsFaMeta(cp: ControlParams): Set[BarFaMeta] =
+    ses.execute(prepBarsSourceFAMeta).all
+      .iterator.asScala.toSeq.map(r => rowToFaSourceMeta(r))
+      .toSet.map(thisFaMeta => readFormsMaxDateTs(thisFaMeta, cp))
 
 }
 

@@ -2,11 +2,11 @@ package cassdb
 
 trait CassQueries {
 
-  val sqlBarsFAMeta =
+  protected lazy val sqlBarsFAMeta =
     """ select distinct ticker_id,ddate,bar_width_sec
       | from mts_bars.bars_fa """.stripMargin
 
-  val sqlBarsFormsMaxDdate =
+  protected lazy val sqlBarsFormsMaxDdate =
            """  select max(ddate)  as ddate,
              |         max(ts_end) as ts_end
              |    from mts_bars.bars_forms

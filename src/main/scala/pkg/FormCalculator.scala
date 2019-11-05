@@ -22,13 +22,23 @@ object FormCalculator{
     Task(ses.dbReadTickersDict)
   */
 
-  val readTickersDict :(CassSessionInstance.type, Int, Int, Seq[Double], Seq[String]) => Task[Seq[barsFaMeta]] =
-    (ses, formDeepKoeff, intervalNewGroupKoeff, seqPercents, seqWays) =>
+
+  //TRY Async callc for seq
+  /**
+  http://degoes.net/articles/zio-cats-effect
+
+   val effect: Task[Data] =
+  Async[Task].async(k =>
+    getDataWithCallbacks(
+      onSuccess = v => k(Right(v)),
+      onFailure = e => k(Left(e))
+    ))
+
+   */
+  val readBarsFaMeta :(CassSessionInstance.type, Set[ControlParams]) => Task[Set[BarFaMeta]] =
+    (ses, setControlParams) =>
       Task(
-      seqWays.flatMap(thisSw =>
-        seqPercents.flatMap(thisPrcnt =>
-          ses.dbReadTickersDict(formDeepKoeff, intervalNewGroupKoeff, thisPrcnt, thisSw)
-        )
+        setControlParams.flatMap(cp => ses.dbReadBarsFaMeta(cp)
       )
     )
 

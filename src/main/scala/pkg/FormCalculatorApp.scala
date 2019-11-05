@@ -28,20 +28,21 @@ import zio.{App, Task, ZIO}
 object FormCalculatorApp extends App {
   val log = LoggerFactory.getLogger(getClass.getName)
   val appName = "FormsCalc"
+  val t1 = System.currentTimeMillis
 
-  private val formDeepKoeff :Int = 6
-  private val intervalNewGroupKoeff :Int = 2
-  private val seqPercents :Seq[Double] = Seq(0.0012, 0.0025, 0.0050)
-  private val seqWays :Seq[String] = Seq("mx", "mn")
+  private val controlParams :Set[ControlParams] =
+    Seq(0.0012, 0.0025, 0.0050).flatMap(
+      prcnt => Seq("mx", "mn").map(
+        resType => ControlParams(6, 2, prcnt, resType))).toSet
 
   val fcInst = FormCalculator
 
-  private val app: ZIO[Console, Throwable, Seq[barsFaMeta]] =
+  private val app: ZIO[Console, Throwable, Set[BarFaMeta]] =
     for {
       _ <- putStrLn("=========== begin calculation ===========")
       ses <- Task(CassSessionInstance)
       _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
-      fcTickersDict <- fcInst.readTickersDict(ses, formDeepKoeff, intervalNewGroupKoeff, seqPercents, seqWays)
+      fcTickersDict <- fcInst.readBarsFaMeta(ses, controlParams)
 
       //resCalc <- fcInst.runFormsCalculator
       _ <- putStrLn("=========== end calculation ===========")
@@ -50,11 +51,11 @@ object FormCalculatorApp extends App {
   def run(args: List[String]): ZIO[Console, Nothing, Int] = {
     app.fold(
       f => {
-        println(s"fail f=$f"); 0
+        println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}"); 0
       },
       s => {
-        println(s"success s=$s");
-        s.foreach(elm => println(elm))
+        println(s"success duration=${System.currentTimeMillis - t1} ms.");
+        s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
         1
       }
     )
