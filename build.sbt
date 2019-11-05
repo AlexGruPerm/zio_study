@@ -20,10 +20,12 @@ resolvers ++= Seq(
 libraryDependencies += "com.typesafe" % "config" % "1.3.4"
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4"
 libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC16"
+libraryDependencies += "com.datastax.oss" % "java-driver-core" % "4.0.1"
 
+
+mainClass in (Compile, run) := Some("pkg.FormCalculatorApp")
 /*
-assemblyJarName in assembly :="ZioStudy.jar"
-mainClass in (Compile, packageBin) := Some("pkg.ZioStudy")
+assemblyJarName in assembly :="FormCalculator.jar"
+mainClass in (Compile, packageBin) := Some("pkg.FormCalculatorApp")
+mainClass in (Compile, run) := Some("pkg.FormCalculatorApp")
 */
-mainClass in (Compile, run) := Some("pkg.MyApp")
-
