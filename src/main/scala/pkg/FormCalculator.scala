@@ -22,8 +22,15 @@ object FormCalculator{
     Task(ses.dbReadTickersDict)
   */
 
-  val readTickersDict :CassSessionInstance.type => Task[Seq[barsFaMeta]] = (ses) =>
-    Task(ses.dbReadTickersDict)
+  val readTickersDict :(CassSessionInstance.type, Int, Int, Seq[Double], Seq[String]) => Task[Seq[barsFaMeta]] =
+    (ses, formDeepKoeff, intervalNewGroupKoeff, seqPercents, seqWays) =>
+      Task(
+      seqWays.flatMap(thisSw =>
+        seqPercents.flatMap(thisPrcnt =>
+          ses.dbReadTickersDict(formDeepKoeff, intervalNewGroupKoeff, thisPrcnt, thisSw)
+        )
+      )
+    )
 
  // private def getStartReadDT :Task[readFrom] = ???
 

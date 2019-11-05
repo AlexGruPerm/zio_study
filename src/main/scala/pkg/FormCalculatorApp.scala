@@ -28,18 +28,20 @@ import zio.{App, Task, ZIO}
 object FormCalculatorApp extends App {
   val log = LoggerFactory.getLogger(getClass.getName)
   val appName = "FormsCalc"
-  val fcInst = FormCalculator
-  private val seqPercents: Seq[Double] = Seq(0.0012, 0.0025, 0.0050)
 
-  //val sesInstance : Task[CassSessionInstance.type] =
-  //  Task(CassSessionInstance)
+  private val formDeepKoeff :Int = 6
+  private val intervalNewGroupKoeff :Int = 2
+  private val seqPercents :Seq[Double] = Seq(0.0012, 0.0025, 0.0050)
+  private val seqWays :Seq[String] = Seq("mx", "mn")
+
+  val fcInst = FormCalculator
 
   private val app: ZIO[Console, Throwable, Seq[barsFaMeta]] =
     for {
       _ <- putStrLn("=========== begin calculation ===========")
-      ses <- Task(CassSessionInstance)//sesInstance
+      ses <- Task(CassSessionInstance)
       _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
-      fcTickersDict <- fcInst.readTickersDict(ses)
+      fcTickersDict <- fcInst.readTickersDict(ses, formDeepKoeff, intervalNewGroupKoeff, seqPercents, seqWays)
 
       //resCalc <- fcInst.runFormsCalculator
       _ <- putStrLn("=========== end calculation ===========")

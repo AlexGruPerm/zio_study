@@ -58,7 +58,7 @@ object CassSessionInstance extends CassSession{
 
   def isSesCloses :Boolean = ses.isClosed
 
-  def dbReadTickersDict :Seq[barsFaMeta] =
+  def dbReadTickersDict(formDeepKoeff :Int, intervalNewGroupKoeff :Int, thisPrcnt :Double, thisSw :String) :Seq[barsFaMeta] =
               ses.execute(prepBarsFAMeta).all
                 .iterator.asScala.toSeq.map(r => rowToBarData(r))
 

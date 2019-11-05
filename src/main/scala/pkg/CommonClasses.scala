@@ -7,9 +7,13 @@ object common {
 }
 
 case class barsFaMeta(
-                       tickerId    :Int,
-                       barWidthSec :Int,
-                       dDate       :LocalDate
+                       tickerId       :Int,
+                       barWidthSec    :Int,
+                       dDate          :LocalDate,
+                       formDeepKoeff  :Int,
+                       intNewGrpKoeff :Int,
+                       percentLogOE   :Double,
+                       formWayType    :String
                      )
 
 /**
