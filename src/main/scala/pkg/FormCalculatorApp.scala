@@ -38,14 +38,36 @@ object FormCalculatorApp extends App {
   val fcInst = FormCalculator
 
 
+  /*
+  trait WithDatabase { val database: Database }
+trait WithEventBus { val eventbus: EventBus }
+
+val createUser: ZIO[WithDatabase, AppError, User]
+def userCreated(user: User): ZIO[WithEventBus, AppError, Unit]
+
+val program: ZIO[WithDatabase with WithEventBus, AppError, User] =
+  for {
+    user <- createUser
+    _    <- userCreated(user)
+  } yield user
+
+val runtime = new WithDatabase with WithEventBus {
+  val database: Database = ...
+  val eventbus: EventBus = ...
+}
+
+// type IO[E, A] = ZIO[Any, E, A]
+program.provide(runtime): IO[AppError, User]
+  */
+
   private val app: ZIO[Console, Throwable, Seq[BarFa]] =
     for {
       _ <- putStrLn("=========== begin calculation ===========")
       ses <- Task(CassSessionInstance)
       _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
       faFullMeta <- fcInst.readBarsFaMeta(ses, controlParams)
-      faBars <- faFullMeta.flatMap(elmFaMeta => Seq(fcInst.readFaBarsData(ses,elmFaMeta)))
-      //resCalc <- fcInst.runFormsCalculator
+      thisFaMeta <- faFullMeta
+      faBars <- fcInst.readFaBarsData(ses,thisFaMeta)
       _ <- putStrLn("=========== end calculation ===========")
     } yield faBars
 
