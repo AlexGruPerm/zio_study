@@ -35,7 +35,7 @@ object FormCalculator{
     ))
 
    */
-  val readBarsFaMeta :(CassSessionInstance.type, Set[ControlParams]) => Task[Set[BarFaMeta]] =
+  val readBarsFaMeta :(CassSessionInstance.type, Seq[ControlParams]) => Task[Seq[BarFaMeta]] =
     (ses, setControlParams) =>
       Task(
         setControlParams.flatMap(cp => ses.dbReadBarsFaMeta(cp))

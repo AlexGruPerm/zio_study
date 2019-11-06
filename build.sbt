@@ -1,4 +1,4 @@
-name := "ZioStudy"
+name := "zio_study"
 
 version := "1.0"
 
