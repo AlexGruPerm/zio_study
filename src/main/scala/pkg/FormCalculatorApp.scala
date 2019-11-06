@@ -73,6 +73,8 @@ program.provide(runtime): IO[AppError, User]
     } yield faBars
 */
 
+  //LOGGER: https://stackoverflow.com/questions/58536841/zio-environment-construction
+  //bottom case.
   private val app: ZIO[Console, Throwable, Seq[BarFa]] = {
     val r :ZIO[Console,Nothing,Unit] = putStrLn("=========== begin calculation ===========").map(m => m)
     val ses = Task(CassSessionInstance)
