@@ -2,12 +2,6 @@ package pkg
 
 import java.time.LocalDate
 
-import pkg.common.maxFormDateTs
-
-object common {
-  type maxFormDateTs = Option[(LocalDate,Long)]
-}
-
 case class ControlParams(formDeepKoeff :Int,
                          intervalNewGroupKoeff :Int,
                          percent :Double,
@@ -26,26 +20,16 @@ case class BarFaMeta(
                      intNewGrpKoeff :Int,
                      percentLogOE   :Double,
                      resType        :String,
-                     readFrom       :maxFormDateTs
+                     readFrom       :Option[LocalDate]
                      )
 object BarFaMeta{
-  def apply(bFaSrcMeta :barsFaSourceMeta, cp :ControlParams, readFrom  :maxFormDateTs) :BarFaMeta ={
+  def apply(bFaSrcMeta :barsFaSourceMeta, cp :ControlParams, readFrom  :Option[LocalDate]) :BarFaMeta ={
     new BarFaMeta(bFaSrcMeta.tickerId, bFaSrcMeta.barWidthSec, cp.formDeepKoeff, cp.intervalNewGroupKoeff,
       cp.percent, cp.resType, readFrom)
   }
 }
 
-
-/**
- * result of calculation for each iteration: ticker,bws,....
- * in run method of main application returned as Seq[calcResInfo]
-*/
-case class calcResInfo(
-                        barsMeta     :BarFaMeta,
-                        insertedRows :Int
-                      )
-
-case class barsResToSaveDB(
+          case class BarFa(
                             tickerId     :Int,
                             dDate        :LocalDate,
                             barWidthSec  :Int,
@@ -58,6 +42,17 @@ case class barsResToSaveDB(
                             c_res        :Double,
                             res_type     :String
                           )
+
+
+/**
+ * result of calculation for each iteration: ticker,bws,....
+ * in run method of main application returned as Seq[calcResInfo]
+*/
+case class calcResInfo(
+                        barsMeta     :BarFaMeta,
+                        insertedRows :Int
+                      )
+
 
 case class tinyTick(
                      db_tsunx  :Long,

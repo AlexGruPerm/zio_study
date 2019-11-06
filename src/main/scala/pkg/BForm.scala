@@ -43,7 +43,7 @@ object BForm {
     } else formCMin
   }
 
-  def create(barFa: barsResToSaveDB,
+  def create(barFa: BarFa,
              formDeepKoef: Int,
              seqTicks: Seq[tinyTick]): BForm = {
     val ticksCnt: Int = seqTicks.size

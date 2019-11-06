@@ -37,16 +37,29 @@ object FormCalculatorApp extends App {
 
   val fcInst = FormCalculator
 
-  private val app: ZIO[Console, Throwable, Set[BarFaMeta]] =
+
+  private val app: ZIO[Console, Throwable, Seq[BarFa]] =
     for {
       _ <- putStrLn("=========== begin calculation ===========")
       ses <- Task(CassSessionInstance)
       _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
-      fcTickersDict <- fcInst.readBarsFaMeta(ses, controlParams)
-
+      faFullMeta <- fcInst.readBarsFaMeta(ses, controlParams)
+      faBars <- faFullMeta.flatMap(elmFaMeta => Seq(fcInst.readFaBarsData(ses,elmFaMeta)))
       //resCalc <- fcInst.runFormsCalculator
       _ <- putStrLn("=========== end calculation ===========")
-    } yield fcTickersDict//resCalc
+    } yield faBars
+
+
+  /**
+   * private val app: ZIO[Console, Throwable, Set[BarFaMeta]] =
+   * for {
+   * _ <- putStrLn("=========== begin calculation ===========")
+   * ses <- Task(CassSessionInstance)
+   * _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
+   * faFullMeta <- fcInst.readBarsFaMeta(ses, controlParams)
+   * _ <- putStrLn("=========== end calculation ===========")
+   * } yield faFullMeta
+  */
 
   def run(args: List[String]): ZIO[Console, Nothing, Int] = {
     app.fold(
