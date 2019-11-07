@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
 trait CassSession extends CassQueries {
-  val log = LoggerFactory.getLogger(getClass.getName)
+  //val log = LoggerFactory.getLogger(getClass.getName)
 
   val config :Config = ConfigFactory.load()
   val confConnectPath :String = "cassandra.connection."
@@ -32,16 +32,16 @@ trait CassSession extends CassQueries {
     }
      catch {
       case e: com.datastax.oss.driver.api.core.servererrors.SyntaxError =>
-        log.error(" prepareSQL - "+e.getMessage)
+        //log.error(" prepareSQL - "+e.getMessage)
         throw e
     }
 }
 
 object CassSessionInstance extends CassSession{
   private val (node :String, dc :String) = getNodeAddressDc
-  log.info("CassSessionInstance DB Address : "+node+" - "+dc)
+  //log.info("CassSessionInstance DB Address : "+node+" - "+dc)
   private val ses :CqlSession = createSession(node,dc)
-  log.info("CassSessionInstance session is connected = " + !ses.isClosed)
+  //log.info("CassSessionInstance session is connected = " + !ses.isClosed)
 
   def isSesCloses :Boolean = ses.isClosed
 
@@ -56,7 +56,6 @@ object CassSessionInstance extends CassSession{
   private val rowToFaSourceMeta : Row => barsFaSourceMeta =
     row => barsFaSourceMeta(row.getInt("ticker_id"),
                             row.getInt("bar_width_sec"))
-
 
   private val rowToBarFAData = (row: Row, tickerID: Int, barWidthSec: Int) => {
     BarFa(
@@ -91,7 +90,9 @@ object CassSessionInstance extends CassSession{
   def dbReadBarsFaMeta(cp: ControlParams): Set[BarFaMeta] =
     ses.execute(prepBarsSourceFAMeta).all
       .iterator.asScala.toSeq.map(r => rowToFaSourceMeta(r))
-      .toSet.map(thisFaMeta => readFormsMaxDateTs(thisFaMeta, cp))
+      .toSet
+      //.filter(elm => Seq(1/*,2,3,4,5*/).contains(elm.tickerId)/*elm.tickerId==1 && elm.barWidthSec==30*/)
+      .map(thisFaMeta => readFormsMaxDateTs(thisFaMeta, cp))
 
   def dbReadBarsFa(sfm :BarFaMeta) :Seq[BarFa] =
     sfm.readFrom match {
@@ -107,10 +108,6 @@ object CassSessionInstance extends CassSession{
           .setInt("p_bar_width_sec",sfm.barWidthSec)).all.iterator.asScala.toSeq
         .map(r => rowToBarFAData(r,sfm.tickerId,sfm.barWidthSec)).sortBy(_.ts_end)
     }
-
-
-
-
 
 }
 

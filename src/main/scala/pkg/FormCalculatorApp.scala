@@ -1,9 +1,9 @@
 package pkg
 
 import cassdb.CassSessionInstance
-import org.slf4j.LoggerFactory
+import zio.DefaultRuntime
 import zio.console._
-import zio.{App, Task, ZIO}
+import zio.{App, IO, Task, ZIO}
 
 /**
  * Medium articles related with ZIO.
@@ -25,112 +25,85 @@ import zio.{App, Task, ZIO}
  *
 */
 
+
 object FormCalculatorApp extends App {
-  val log = LoggerFactory.getLogger(getClass.getName)
+  //val log = LoggerFactory.getLogger(getClass.getName)
   val appName = "FormsCalc"
   val t1 = System.currentTimeMillis
 
-  private val controlParams :Seq[ControlParams] =
-    Seq(0.0012, 0.0025, 0.0050).flatMap(
+  private val controlParams: Seq[ControlParams] =
+    Seq(0.0012 , 0.0025, 0.0050).flatMap(
       prcnt => Seq("mx", "mn").map(
         resType => ControlParams(6, 2, prcnt, resType)))
 
   val fcInst = FormCalculator
+  val rt = new DefaultRuntime {}
 
 
-  /*
-  trait WithDatabase { val database: Database }
+  private val FaMmetaReader: Task[CassSessionInstance.type] => Task[Seq[BarFaMeta]] = ses =>
+    Task(CassSessionInstance)
+      .map(s => fcInst.readBarsFaMeta(s, controlParams)).flatMap(ttm => ttm)
+
+
+  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BarFa]] =
+    (ses, faMeta) =>
+      ses.map(s =>
+        fcInst.readFaBarsData(s, faMeta) // Task[Seq[BarFa]]
+      ).flatMap(sb => sb).flatMap(ls => Task(ls))
+
+
+  def run(args: List[String]): ZIO[Console, Nothing, Int]= {
+    val ses = Task(CassSessionInstance)
+    //val faMeta :Task[Seq[BarFaMeta]] = FaMmetaReader(ses)
+    val seqFaMeta: Seq[BarFaMeta] = rt.unsafeRun(FaMmetaReader(ses))
+
+    println(s"FaMeta count = ${seqFaMeta.size}")
+
+    val cni: Seq[ZIO[Console, Nothing, Int]] =
+      seqFaMeta.map(
+        faMeta =>
+        app(ses, faMeta).fold(
+          f => {
+            println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}");
+            0
+          },
+          s => {
+            println(s"success duration=${(System.currentTimeMillis - t1)/1000} sec.");
+            println(s"BarFa count=${s.size}")
+            //s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
+            s.size
+          }
+        )
+      )
+
+    val res :Int = cni.map(elm => rt.unsafeRun(elm)).sum
+
+    println(s"Summary duration=${(System.currentTimeMillis - t1)/1000} sec.");
+    IO.succeed(res)
+  }
+
+
+}
+
+
+/*
+trait WithDatabase { val database: Database }
 trait WithEventBus { val eventbus: EventBus }
 
 val createUser: ZIO[WithDatabase, AppError, User]
 def userCreated(user: User): ZIO[WithEventBus, AppError, Unit]
 
 val program: ZIO[WithDatabase with WithEventBus, AppError, User] =
-  for {
-    user <- createUser
-    _    <- userCreated(user)
-  } yield user
+for {
+  user <- createUser
+  _    <- userCreated(user)
+} yield user
 
 val runtime = new WithDatabase with WithEventBus {
-  val database: Database = ...
-  val eventbus: EventBus = ...
+val database: Database = ...
+val eventbus: EventBus = ...
 }
-
-// type IO[E, A] = ZIO[Any, E, A]
-program.provide(runtime): IO[AppError, User]
-  */
-
-  /*
-  private val app: ZIO[Console, Throwable, Seq[BarFa]] =
-    for {
-      _ <- putStrLn("=========== begin calculation ===========")
-      ses <- Task(CassSessionInstance)
-      _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
-      faFullMeta <- fcInst.readBarsFaMeta(ses, controlParams)
-      thisFaMeta <- faFullMeta
-      faBars <- for {thisBarData <- fcInst.readFaBarsData(ses,thisFaMeta)} yield thisBarData
-      _ <- putStrLn("=========== end calculation ===========")
-    } yield faBars
 */
 
-  //LOGGER: https://stackoverflow.com/questions/58536841/zio-environment-construction
-  //bottom case.
-  private val app: ZIO[Console, Throwable, Seq[BarFa]] = {
-    val r :ZIO[Console,Nothing,Unit] = putStrLn("=========== begin calculation ===========").map(m => m)
-    val ses = Task(CassSessionInstance)
-    putStrLn(s"Is cassandra session opened : ${ses.map(s => s.isSesCloses)}")
-    val faFullMeta :Task[Task[Seq[BarFaMeta]]] = ses.map(s =>  fcInst.readBarsFaMeta(s, controlParams))
-    putStrLn("=========== end calculation ===========")
-
-    val faBarsData :Task[Seq[Task[Task[Seq[BarFa]]]]] =
-      faFullMeta.flatMap(                     // faFullMeta :Task[Task[Seq[BarFaMeta]]]
-        setFMeta => setFMeta.map(             // seqFMeta :Task[Seq[BarFa]] after first flatMap we have internal Task
-          thisFaMeta => thisFaMeta.map(       // thisFaMeta :Seq[BarFaMeta]
-            thFaM => ses.map(s =>             // thFaM :BarFaMeta
-              fcInst.readFaBarsData(s, thFaM) // Task[Seq[BarFa]]
-            )
-          )                                   // Seq[Task[Seq[BarFa]]]
-        )
-      )
-
-    // Task[Seq[Task[Task[Seq[BarFa]]]]]
-    val expFaBarData : Task[Seq[BarFa]] = faBarsData.flatMap(
-      extTask => // extTask : Seq[Task[Task[Seq[BarFa]]]]
-        extTask
-    )
-
-    //val t :Set[ZIO[Any, Throwable, zio.Task[Seq[BarFa]]]] = faBarsData.flatMap(setZioSeqFaBars => setZioSeqFaBars)
-
-    /*
-    val faFullMetaSet :ZIO[Any,Throwable,Set[BarFaMeta]] = faFullMeta.flatMap(ffm => ffm)
-    faFullMetaSet
-    */
-      expFaBarData
-  }
-
-
-  /*
-    private val app: ZIO[Console, Throwable, Set[BarFaMeta]] =
-    for {
-    _ <- putStrLn("=========== begin calculation ===========")
-    ses <- Task(CassSessionInstance)
-    _ <- putStrLn(s"Is cassandra session opened : ${!ses.isSesCloses}")
-    faFullMeta <- fcInst.readBarsFaMeta(ses, controlParams)
-    _ <- putStrLn("=========== end calculation ===========")
-    } yield faFullMeta
-  */
-
-
-  def run(args: List[String]): ZIO[Console, Nothing, Int] = {
-    app.fold(
-      f => {
-        println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}"); 0
-      },
-      s => {
-        println(s"success duration=${System.currentTimeMillis - t1} ms.");
-        s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
-        1
-      }
-    )
-    }
-  }
+//LOGGER: https://stackoverflow.com/questions/58536841/zio-environment-construction
+//bottom case.
