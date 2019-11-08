@@ -1,5 +1,7 @@
 package pkg
 
+import java.time.LocalDate
+
 import cassdb.CassSessionInstance
 import zio.DefaultRuntime
 import zio.console._
@@ -29,81 +31,78 @@ import zio.{App, IO, Task, ZIO}
 object FormCalculatorApp extends App {
   //val log = LoggerFactory.getLogger(getClass.getName)
   val appName = "FormsCalc"
-  val t1 = System.currentTimeMillis
+  val tc1 = System.currentTimeMillis
 
   private val controlParams: Seq[ControlParams] =
     Seq(0.0012 , 0.0025, 0.0050).flatMap(
-      prcnt => Seq("mx", "mn").map(
-        resType => ControlParams(6, 2, prcnt, resType)))
+      precent => Seq("mx", "mn").map(
+        resType => ControlParams(6, 2, precent, resType)))
 
   val fcInst = FormCalculator
   val rt = new DefaultRuntime {}
-
 
   private val FaMmetaReader: Task[CassSessionInstance.type] => Task[Seq[BarFaMeta]] = ses =>
     Task(CassSessionInstance)
       .map(s => fcInst.readBarsFaMeta(s, controlParams)).flatMap(ttm => ttm)
 
-
-  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BarFa]] =
-    (ses, faMeta) =>
+  private val readFullDataByTickerBwsDate :(Task[CassSessionInstance.type], Int, Int , Option[LocalDate])
+    => Task[Seq[BarFa]] =
+    (ses, tickerId, Bws, dDate) =>
       ses.map(s =>
-        fcInst.readFaBarsData(s, faMeta) // Task[Seq[BarFa]]
+        fcInst.readFaBarsData(s, tickerId, Bws, dDate) // Task[Seq[BarFa]]
       ).flatMap(sb => sb).flatMap(ls => Task(ls))
 
+  private val app: (BarFaMeta, Task[Seq[BarFa]]) => ZIO[Console, Throwable, Seq[BarFa]] =
+    (faMeta, fullDs) =>
+      fullDs.flatMap(sB =>
+        Task(sB.filter(bfm =>
+          bfm.tickerId == faMeta.tickerId &&
+            bfm.barWidthSec == faMeta.barWidthSec &&
+            bfm.log_oe == faMeta.percentLogOE &&
+            bfm.res_type == faMeta.resType
+        ))
+      )
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
     //val faMeta :Task[Seq[BarFaMeta]] = FaMmetaReader(ses)
     val seqFaMeta: Seq[BarFaMeta] = rt.unsafeRun(FaMmetaReader(ses))
 
-    println(s"FaMeta count = ${seqFaMeta.size}")
+    println(s"FaMeta count = ${seqFaMeta.size} ---------------------")
+    seqFaMeta.foreach(println)
+    println("-------------------------------")
 
     val cni: Seq[ZIO[Console, Nothing, Int]] =
-      seqFaMeta.map(
-        faMeta =>
-        app(ses, faMeta).fold(
-          f => {
-            println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}");
-            0
-          },
-          s => {
-            println(s"success duration=${(System.currentTimeMillis - t1)/1000} sec.");
-            println(s"BarFa count=${s.size}")
-            //s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
-            s.size
-          }
-        )
-      )
+      seqFaMeta.map(fm => (fm.tickerId, fm.barWidthSec, fm.readFrom)).distinct.flatMap {
+        k =>
+          val fullDs = readFullDataByTickerBwsDate(ses, k._1, k._2, k._3)
+          println(s"Read full Ds for k=$k  sec.")
+          seqFaMeta.sortBy(f => (f.tickerId,f.barWidthSec,f.percentLogOE)).map(
+            faMeta => {
+              app(faMeta, fullDs).fold(
+                f => {
+                  println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}");
+                  0
+                },
+                s => {
+                  val t1 = System.currentTimeMillis
+                  println(s"success duration=${(System.currentTimeMillis - t1) / 1000} sec.");
+                  println(s"for faMeta = ${faMeta} s.size=${s.size}")
+                  //println(s"BarFa tickerId=${s.head.tickerId} bws=${s.head.barWidthSec} log_oe=${s.head.log_oe} res_type=${s.head.res_type} count=${s.size}")
+                  //s.map(bfa => (bfa.tickerId,bfa.barWidthSec,bfa.log_oe,bfa.res_type)).distinct.foreach(println)
+                  //s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
+                  s.size
+                }
+              )
+            }
+          )
+      }
 
     val res :Int = cni.map(elm => rt.unsafeRun(elm)).sum
 
-    println(s"Summary duration=${(System.currentTimeMillis - t1)/1000} sec.");
+    println(s"Summary duration=${(System.currentTimeMillis - tc1)/1000} sec.");
     IO.succeed(res)
   }
 
 
 }
-
-
-/*
-trait WithDatabase { val database: Database }
-trait WithEventBus { val eventbus: EventBus }
-
-val createUser: ZIO[WithDatabase, AppError, User]
-def userCreated(user: User): ZIO[WithEventBus, AppError, Unit]
-
-val program: ZIO[WithDatabase with WithEventBus, AppError, User] =
-for {
-  user <- createUser
-  _    <- userCreated(user)
-} yield user
-
-val runtime = new WithDatabase with WithEventBus {
-val database: Database = ...
-val eventbus: EventBus = ...
-}
-*/
-
-//LOGGER: https://stackoverflow.com/questions/58536841/zio-environment-construction
-//bottom case.
