@@ -1,11 +1,8 @@
 package pkg
 
-import java.time.LocalDate
-
 import cassdb.CassSessionInstance
-import zio.DefaultRuntime
 import zio.console._
-import zio.{App, IO, Task, ZIO}
+import zio._
 
 /**
  * Medium articles related with ZIO.
@@ -41,62 +38,53 @@ object FormCalculatorApp extends App {
   val fcInst = FormCalculator
   val rt = new DefaultRuntime {}
 
-  private val FaMmetaReader: Task[CassSessionInstance.type] => Task[Seq[BarFaMeta]] = ses =>
-    Task(CassSessionInstance)
-      .map(s => fcInst.readBarsFaMeta(s, controlParams)).flatMap(ttm => ttm)
+  private val FaMmetaReader: Task[CassSessionInstance.type] => Task[Seq[BarFaMeta]] =
+    ses =>
+    for{
+      s <- ses
+      r <- fcInst.readBarsFaMeta(s, controlParams)
+    } yield r
 
-  private val readFullDataByTickerBwsDate :(Task[CassSessionInstance.type], Int, Int , Option[LocalDate])
-    => Task[Seq[BarFa]] =
-    (ses, tickerId, Bws, dDate) =>
-      ses.map(s =>
-        fcInst.readFaBarsData(s, tickerId, Bws, dDate) // Task[Seq[BarFa]]
-      ).flatMap(sb => sb).flatMap(ls => Task(ls))
 
-  private val app: (BarFaMeta, Task[Seq[BarFa]]) => ZIO[Console, Throwable, Seq[BarFa]] =
-    (faMeta, fullDs) =>
-      fullDs.flatMap(sB =>
-        Task(sB.filter(bfm =>
-          bfm.tickerId == faMeta.tickerId &&
-            bfm.barWidthSec == faMeta.barWidthSec &&
-            bfm.log_oe == faMeta.percentLogOE &&
-            bfm.res_type == faMeta.resType
-        ))
-      )
+  /**
+   * todo:
+   * 1) app convert into FaDataReader
+   * 2) in app change return type from Task[Seq[BarFa]] into Task[Seq[CalcForm]]
+   *
+   *
+  */
+
+  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BarFa]] =
+    (ses,faMeta) =>
+      for {
+        s <- ses
+        r <- fcInst.readFaBarsData(s, faMeta)
+      } yield r
+
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
-    //val faMeta :Task[Seq[BarFaMeta]] = FaMmetaReader(ses)
     val seqFaMeta: Seq[BarFaMeta] = rt.unsafeRun(FaMmetaReader(ses))
-
-    println(s"FaMeta count = ${seqFaMeta.size} ---------------------")
     seqFaMeta.foreach(println)
-    println("-------------------------------")
 
     val cni: Seq[ZIO[Console, Nothing, Int]] =
-      seqFaMeta.map(fm => (fm.tickerId, fm.barWidthSec, fm.readFrom)).distinct.flatMap {
-        k =>
-          val fullDs = readFullDataByTickerBwsDate(ses, k._1, k._2, k._3)
-          println(s"Read full Ds for k=$k  sec.")
           seqFaMeta.sortBy(f => (f.tickerId,f.barWidthSec,f.percentLogOE)).map(
             faMeta => {
-              app(faMeta, fullDs).fold(
+              val t1 = System.currentTimeMillis
+              app(ses, faMeta).fold(
                 f => {
                   println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}");
                   0
                 },
                 s => {
-                  val t1 = System.currentTimeMillis
-                  println(s"success duration=${(System.currentTimeMillis - t1) / 1000} sec.");
+                  println(s"success duration=${(System.currentTimeMillis - t1)} ms.");
                   println(s"for faMeta = ${faMeta} s.size=${s.size}")
-                  //println(s"BarFa tickerId=${s.head.tickerId} bws=${s.head.barWidthSec} log_oe=${s.head.log_oe} res_type=${s.head.res_type} count=${s.size}")
-                  //s.map(bfa => (bfa.tickerId,bfa.barWidthSec,bfa.log_oe,bfa.res_type)).distinct.foreach(println)
-                  //s.foreach(elm => /*if (elm.readFrom.isDefined)*/ println(elm))
                   s.size
                 }
               )
             }
           )
-      }
+
 
     val res :Int = cni.map(elm => rt.unsafeRun(elm)).sum
 

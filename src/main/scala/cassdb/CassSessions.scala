@@ -1,7 +1,6 @@
 package cassdb
 
 import java.net.InetSocketAddress
-import java.time.LocalDate
 
 import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.cql.{BoundStatement, Row}
@@ -74,7 +73,7 @@ object CassSessionInstance extends CassSession{
   }
 
   private def readFormsMaxDateTs(bFaSrcMeta :barsFaSourceMeta, cp: ControlParams) :BarFaMeta = {
-    println(s"Call readFormsMaxDateTs for cp.percent = ${cp.percent} cp.resType = ${cp.resType}")
+    //println(s"Call readFormsMaxDateTs for cp.percent = ${cp.percent} cp.resType = ${cp.resType}")
     val row = ses.execute(prepBarsFormsMaxDdate
       .setInt("p_ticker_id", bFaSrcMeta.tickerId)
       .setInt("p_bar_width_sec", bFaSrcMeta.barWidthSec)
@@ -99,27 +98,34 @@ object CassSessionInstance extends CassSession{
     )
   }
 
-  def dbReadBarsFa(tickerId :Int, Bws :Int, dDate :Option[LocalDate]) :Seq[BarFa] =
+  def dbReadBarsFa(fm :BarFaMeta) :Seq[BarFa] =
+    /*
     ses.execute(
       prepBarsFaData
-        .setInt("p_ticker_id", tickerId)
-        .setInt("p_bar_width_sec",Bws)).all.iterator.asScala.toSeq
-      .map(r => rowToBarFAData(r,tickerId,Bws)).sortBy(_.ts_end)
-  /*
-    dDate match {
+        .setInt("p_ticker_id", fm.tickerId)
+        .setInt("p_bar_width_sec", fm.barWidthSec)
+        .setDouble("p_log_oe", fm.percentLogOE)
+        .setString("p_res_type", fm.resType)
+    ).all.iterator.asScala.toSeq
+      .map(r => rowToBarFAData(r, fm.tickerId, fm.barWidthSec)).sortBy(_.ts_end)
+  */
+    fm.readFrom match {
       case Some(readFrom) => ses.execute(
         prepBarsFaDataMtDate
-          .setInt("p_ticker_id", tickerId)
-          .setInt("p_bar_width_sec",Bws)
+          .setInt("p_ticker_id", fm.tickerId)
+          .setInt("p_bar_width_sec",fm.barWidthSec)
+          .setDouble("p_log_oe", fm.percentLogOE)
+          .setString("p_res_type", fm.resType)
           .setLocalDate("p_ddate",readFrom)).all.iterator.asScala.toSeq
-        .map(r => rowToBarFAData(r,tickerId,Bws)).sortBy(_.ts_end)
+        .map(r => rowToBarFAData(r,fm.tickerId,fm.barWidthSec)).sortBy(_.ts_end)
       case None => ses.execute(
         prepBarsFaData
-          .setInt("p_ticker_id", tickerId)
-          .setInt("p_bar_width_sec",Bws)).all.iterator.asScala.toSeq
-        .map(r => rowToBarFAData(r,tickerId,Bws)).sortBy(_.ts_end)
+          .setInt("p_ticker_id", fm.tickerId)
+          .setDouble("p_log_oe", fm.percentLogOE)
+          .setString("p_res_type", fm.resType)
+          .setInt("p_bar_width_sec",fm.barWidthSec)).all.iterator.asScala.toSeq
+        .map(r => rowToBarFAData(r,fm.tickerId,fm.barWidthSec)).sortBy(_.ts_end)
     }
-  */
 
 }
 
