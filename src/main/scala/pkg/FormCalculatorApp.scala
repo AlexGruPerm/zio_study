@@ -45,22 +45,13 @@ object FormCalculatorApp extends App {
       r <- fcInst.readBarsFaMeta(s, controlParams)
     } yield r
 
-
-  /**
-   * todo:
-   * 1) app convert into FaDataReader
-   * 2) in app change return type from Task[Seq[BarFa]] into Task[Seq[CalcForm]]
-   *
-   *
-  */
-
-  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BarFa]] =
+  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[(Int,BarFa)]] =
     (ses,faMeta) =>
       for {
         s <- ses
-        r <- fcInst.readFaBarsData(s, faMeta)
+        dat <- fcInst.readFaBarsData(s, faMeta)
+        r <- fcInst.filterData(dat, faMeta)
       } yield r
-
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
