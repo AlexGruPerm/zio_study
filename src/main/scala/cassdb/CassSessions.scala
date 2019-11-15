@@ -6,7 +6,8 @@ import java.time.LocalDate
 import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.cql.{BatchStatement, BoundStatement, DefaultBatchType, Row}
 import com.typesafe.config.{Config, ConfigFactory}
-import pkg.{BarFa, BarFaMeta, ControlParams, barsFaSourceMeta, tinyTick}
+import pkg.{BForm, BarFa, BarFaMeta, ControlParams, barsFaSourceMeta, tinyTick}
+import zio.Task
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -152,7 +153,7 @@ object CassSessionInstance extends CassSession{
     }
 
 
-  def saveForms(seqForms : Seq[BForm]) :Int = {
+  def saveForms(seqForms : Seq[BForm]) :Task[Seq[Int]] = Task{
     val savedSize :Int = seqForms.size
     seqForms.map(f => f.dDate).distinct.toList.collect {
       case  thisDdate =>
@@ -171,7 +172,6 @@ object CassSessionInstance extends CassSession{
                 .setString("p_res_type",t.resType)
                 .setInt("p_formDeepKoef", t.formDeepKoef)
                 .setMap("p_FormProps",t.FormProps.asJava, classOf[java.lang.String], classOf[java.lang.String])
-                //.setMap("p_FormProps", t.FormProps, String, String)
               )
           }
           try {
@@ -183,7 +183,7 @@ object CassSessionInstance extends CassSession{
           }
         }
     }
-    savedSize
+    Seq(savedSize)
   }
 
 

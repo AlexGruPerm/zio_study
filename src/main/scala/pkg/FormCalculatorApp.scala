@@ -64,7 +64,7 @@ object FormCalculatorApp extends App {
     } yield ticks
   */
 
-  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BForm]] =
+  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[Int]] =
     (ses,faMeta) =>
       for {
         s <- ses
@@ -73,13 +73,13 @@ object FormCalculatorApp extends App {
         fb <- Task(lastBarsOfFormsAllTickers.map(pairGroupBarFa => pairGroupBarFa._2).minBy(_.ts_end)) //common value for all Seq lastBarsOfFormsAllTickers
         lb <- Task(lastBarsOfFormsAllTickers.map(pairGroupBarFa => pairGroupBarFa._2).maxBy(_.ts_end)) //common value for all Seq lastBarsOfFormsAllTickers
         seqTicks <- fcInst.readAllTicksForForms(s, fb, lb) //read all for interval by fb,lb
-        f <-  IO.sequence(lastBarsOfFormsAllTickers.map(pairGroupBarFa =>
+        formsRows <-  IO.sequence(lastBarsOfFormsAllTickers.map(pairGroupBarFa =>
           fcInst.createForm(pairGroupBarFa._2,faMeta.formDeepKoeff,
             seqTicks.filter(t => t.db_tsunx >= (pairGroupBarFa._2.ts_end - faMeta.formDeepKoeff * pairGroupBarFa._2.barWidthSec * 1000L)
               && t.db_tsunx <= pairGroupBarFa._2.ts_end)
           )))
-
-      } yield f
+        rowsCounts <- s.saveForms(formsRows)
+      } yield rowsCounts
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
