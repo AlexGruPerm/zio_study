@@ -17,6 +17,12 @@ object FormCalculator{
         ses.dbReadBarsFa(fm)
       )
 
+  val readAllTicksForForms :(CassSessionInstance.type, BarFa, BarFa) => Task[Seq[tinyTick]] =
+    (ses, firstBarOfLastBars, lastBarOfLastBars) =>
+      Task(
+        ses.dbReadTicksForForms(firstBarOfLastBars, lastBarOfLastBars)
+      )
+
   val filterData : (Seq[BarFa], BarFaMeta) => Task[Seq[(Int,BarFa)]] = (dat, faMeta) => {
     dat.headOption match {
       case Some(ho) => {
@@ -35,21 +41,10 @@ object FormCalculator{
       }
       case None => Task(Nil)
     }
-    /*
-      val groupIntervalSec = dat.head.barWidthSec * faMeta.intNewGrpKoeff
-      Task(dat.tail.foldLeft(List((1, dat.head))){
-        (acc, elm) =>
-          if ((elm.ts_end - acc.head._2.ts_end) / 1000L < groupIntervalSec)
-            (acc.head._1, elm) :: acc
-          else
-            (acc.head._1 + 1, elm) :: acc
-      }.reverse.groupBy(elm => elm._1).map(
-        s => (s._1, s._2.filter(
-          e => e._2.ts_end == (s._2.map(
-            b => b._2.ts_end).max)
-        ))
-      ).toSeq.flatMap(elm => elm._2).sortBy(e => e._2.ts_end))
-    */
     }
+
+  val createForm : (BarFa, Int, Seq[tinyTick]) => Task[BForm] = (bf, formDeepKoef, st) => {
+    Task(BForm.create(bf, formDeepKoef, st))
+  }
 
 }

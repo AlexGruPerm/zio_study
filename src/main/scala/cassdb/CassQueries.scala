@@ -51,4 +51,48 @@ trait CassQueries {
       |          res_type      =  :p_res_type
       |    allow filtering """.stripMargin
 
+
+  protected lazy val sqlDdatesTicksByInter =
+    """
+     | select distinct ticker_id,ddate
+     |   from mts_src.ticks
+     |  where ticker_id  = :p_ticker_id and
+     |            ddate <= :p_ddate_max and
+     |            ddate >= :p_ddate_min
+     |   allow filtering
+    """.stripMargin
+
+  protected lazy val sqlAllTicksByDdate =
+    """
+    |  select db_tsunx,ask,bid
+    |    from mts_src.ticks
+    |   where ticker_id = :p_ticker_id and
+    |         ddate     = :p_ddate
+    """.stripMargin
+
+  protected lazy val sqlSaveForm =
+    """
+    |  insert into mts_bars.bars_forms(
+    |     	                           ticker_id,
+    |                                  bar_width_sec,
+    |  	                               ddate,
+    |                                  ts_begin,
+    |                                  ts_end,
+    |                               	 log_oe,
+    |  	                               res_type,
+    |                                  formDeepKoef,
+    |                                  FormProps)
+    |   values(
+    |          :p_ticker_id,
+    |          :p_bar_width_sec,
+    |          :p_ddate,
+    |          :p_ts_begin,
+    |          :p_ts_end,
+    |          :p_log_oe,
+    |          :p_res_type,
+    |          :p_formDeepKoef,
+    |          :p_FormProps
+    |         )
+    """.stripMargin
+
 }

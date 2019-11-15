@@ -1,11 +1,12 @@
 package cassdb
 
 import java.net.InetSocketAddress
+import java.time.LocalDate
 
 import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.cql.{BoundStatement, Row}
 import com.typesafe.config.{Config, ConfigFactory}
-import pkg.{BarFa, BarFaMeta, ControlParams, barsFaSourceMeta}
+import pkg.{BarFa, BarFaMeta, ControlParams, barsFaSourceMeta, tinyTick}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
@@ -51,6 +52,11 @@ object CassSessionInstance extends CassSession{
   //Return bars_fa for ticker+bws or >= ddate
   private val prepBarsFaDataMtDate :BoundStatement = prepareSql(ses,sqlBarsFaDataMtDate)
   private val prepBarsFaData :BoundStatement = prepareSql(ses,sqlBarsFaData)
+
+  private val prepDdatesTicksByInter  :BoundStatement = prepareSql(ses,sqlDdatesTicksByInter)
+  private val    prepAllTicksByDdate  :BoundStatement = prepareSql(ses,sqlAllTicksByDdate)
+
+  private val prepSaveForm :BoundStatement = prepareSql(ses,sqlSaveForm)
 
   private val rowToFaSourceMeta : Row => barsFaSourceMeta =
     row => barsFaSourceMeta(row.getInt("ticker_id"),
@@ -98,17 +104,34 @@ object CassSessionInstance extends CassSession{
     )
   }
 
+  def  dbReadTicksForForms(firstBarOfLastBars :BarFa, lastBarOfLastBars :BarFa) :Seq[tinyTick] ={
+    val (tsMin :Long, ddateMin :LocalDate) = (firstBarOfLastBars.ts_end, firstBarOfLastBars.dDate)
+    val (tsMax :Long, ddateMax :LocalDate) = (lastBarOfLastBars.ts_end, lastBarOfLastBars.dDate)
+    val tickerId :Int = firstBarOfLastBars.tickerId
+    ses.execute(prepDdatesTicksByInter
+      .setInt( "p_ticker_id",tickerId)
+      .setLocalDate("p_ddate_max",ddateMax)
+      .setLocalDate("p_ddate_min",ddateMin))
+      .all()
+      .iterator.asScala.toSeq
+      .map(r => (r.getInt("ticker_id"),r.getLocalDate("ddate"))).sortBy(e => e._2.getDayOfYear)
+      .collect {
+        case (tickerID :Int, ddate :LocalDate) =>
+          val seqTickOneDDate :Seq[tinyTick] =
+            ses.execute(prepAllTicksByDdate
+              .setInt("p_ticker_id",tickerID)
+              .setLocalDate("p_ddate",ddate))
+              .all().iterator.asScala.toSeq
+              .map(r => new tinyTick(
+                r.getLong("db_tsunx"),
+                r.getDouble("ask"),
+                r.getDouble("bid"))
+              )
+          seqTickOneDDate.sortBy(e => e.db_tsunx)
+      }.flatten.filter(elm => elm.db_tsunx >= tsMin && elm.db_tsunx <= tsMax)
+  }
+
   def dbReadBarsFa(fm :BarFaMeta) :Seq[BarFa] =
-    /*
-    ses.execute(
-      prepBarsFaData
-        .setInt("p_ticker_id", fm.tickerId)
-        .setInt("p_bar_width_sec", fm.barWidthSec)
-        .setDouble("p_log_oe", fm.percentLogOE)
-        .setString("p_res_type", fm.resType)
-    ).all.iterator.asScala.toSeq
-      .map(r => rowToBarFAData(r, fm.tickerId, fm.barWidthSec)).sortBy(_.ts_end)
-  */
     fm.readFrom match {
       case Some(readFrom) => ses.execute(
         prepBarsFaDataMtDate
@@ -126,6 +149,33 @@ object CassSessionInstance extends CassSession{
           .setInt("p_bar_width_sec",fm.barWidthSec)).all.iterator.asScala.toSeq
         .map(r => rowToBarFAData(r,fm.tickerId,fm.barWidthSec)).sortBy(_.ts_end)
     }
+
+  /*
+  def saveForms(seqForms : Seq[bForm]) = {
+    seqForms.map(f => f.dDate).distinct.toList.collect {
+      case  thisDdate =>
+        val parts = seqForms.filter(tf => tf.dDate == thisDdate).grouped(100)//other limit 65535 for tiny rows.
+        for(thisPartOfSeq <- parts) {
+          var batch = new BatchStatement(BatchStatement.Type.UNLOGGED)
+          thisPartOfSeq.foreach {
+            t =>
+              batch.add(prepSaveForm.bind()
+                .setInt("p_ticker_id", t.tickerId)
+                .setInt("p_bar_width_sec",t.barWidthSec)
+                .setDate("p_ddate", t.dDate)
+                .setLong("p_ts_begin", t.TsBegin)
+                .setLong("p_ts_end", t.TsEnd)
+                .setDouble("p_log_oe",t.log_oe)
+                .setString("p_res_type",t.resType)
+                .setInt("p_formDeepKoef", t.formDeepKoef)
+                .setMap("p_FormProps", t.FormProps.asJava)
+              )
+          }
+          session.execute(batch)
+        }
+    }
+  }
+  */
 
 }
 

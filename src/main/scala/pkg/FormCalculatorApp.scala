@@ -1,8 +1,8 @@
 package pkg
 
 import cassdb.CassSessionInstance
-import zio.console._
 import zio._
+import zio.console._
 
 /**
  * Medium articles related with ZIO.
@@ -24,9 +24,7 @@ import zio._
  *
 */
 
-
 object FormCalculatorApp extends App {
-  //val log = LoggerFactory.getLogger(getClass.getName)
   val appName = "FormsCalc"
   val tc1 = System.currentTimeMillis
 
@@ -35,8 +33,9 @@ object FormCalculatorApp extends App {
       precent => Seq("mx", "mn").map(
         resType => ControlParams(6, 2, precent, resType)))
 
-  val fcInst = FormCalculator
-  val rt = new DefaultRuntime {}
+  val fcInst :FormCalculator.type = FormCalculator
+  val rt : Runtime[ZEnv] = new DefaultRuntime {}
+
 
   private val FaMmetaReader: Task[CassSessionInstance.type] => Task[Seq[BarFaMeta]] =
     ses =>
@@ -45,13 +44,41 @@ object FormCalculatorApp extends App {
       r <- fcInst.readBarsFaMeta(s, controlParams)
     } yield r
 
-  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[(Int,BarFa)]] =
+  /*
+  private val calcForm: (Task[CassSessionInstance.type],BarFa, Int, Seq[tinyTick]) => Task[BForm] =
+    (ses, bf, formDeepKoef, st) =>
+      for {
+        s <- ses
+        frm <- fcInst.createForm(bf, formDeepKoef, st)
+      } yield frm
+  */
+
+
+
+/*
+  private val TicksReader: (Task[CassSessionInstance.type], BarFa, BarFa) => Task[Seq[tinyTick]] =
+    (ses, fb, lb) =>
+    for {
+      s <- ses
+      ticks <- fcInst.readAllTicksForForms(s,fb,lb)
+    } yield ticks
+  */
+
+  private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[BForm]] =
     (ses,faMeta) =>
       for {
         s <- ses
         dat <- fcInst.readFaBarsData(s, faMeta)
-        r <- fcInst.filterData(dat, faMeta)
-      } yield r
+        lastBarsOfFormsAllTickers <- fcInst.filterData(dat, faMeta)  // filterData : Task[Seq[(Int,BarFa)]]
+        fb <- Task(lastBarsOfFormsAllTickers.map(pairGroupBarFa => pairGroupBarFa._2).minBy(_.ts_end)) //common value for all Seq lastBarsOfFormsAllTickers
+        lb <- Task(lastBarsOfFormsAllTickers.map(pairGroupBarFa => pairGroupBarFa._2).maxBy(_.ts_end)) //common value for all Seq lastBarsOfFormsAllTickers
+        seqTicks <- fcInst.readAllTicksForForms(s, fb, lb) //read all for interval by fb,lb
+        f <-  IO.sequence(lastBarsOfFormsAllTickers.map(pairGroupBarFa =>
+          fcInst.createForm(pairGroupBarFa._2,faMeta.formDeepKoeff,
+            seqTicks.filter(t => t.db_tsunx >= (pairGroupBarFa._2.ts_end - faMeta.formDeepKoeff * pairGroupBarFa._2.barWidthSec * 1000L)
+              && t.db_tsunx <= pairGroupBarFa._2.ts_end)
+          )))
+      } yield f
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
@@ -69,7 +96,7 @@ object FormCalculatorApp extends App {
                 },
                 s => {
                   println(s"success duration=${(System.currentTimeMillis - t1)} ms.");
-                  println(s"for faMeta = ${faMeta} s.size=${s.size}")
+                  println(s"for Forms = ${faMeta} s.size=${s.size}")
                   s.size
                 }
               )
