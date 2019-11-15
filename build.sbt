@@ -22,7 +22,6 @@ libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4"
 libraryDependencies += "dev.zio" %% "zio" % "1.0.0-RC16"
 libraryDependencies += "com.datastax.oss" % "java-driver-core" % "4.0.1"
 
-
 mainClass in (Compile, run) := Some("pkg.FormCalculatorApp")
 /*
 assemblyJarName in assembly :="FormCalculator.jar"

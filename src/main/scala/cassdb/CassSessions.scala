@@ -4,12 +4,13 @@ import java.net.InetSocketAddress
 import java.time.LocalDate
 
 import com.datastax.oss.driver.api.core.CqlSession
-import com.datastax.oss.driver.api.core.cql.{BoundStatement, Row}
+import com.datastax.oss.driver.api.core.cql.{BatchStatement, BoundStatement, DefaultBatchType, Row}
 import com.typesafe.config.{Config, ConfigFactory}
 import pkg.{BarFa, BarFaMeta, ControlParams, barsFaSourceMeta, tinyTick}
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
+
 
 trait CassSession extends CassQueries {
   //val log = LoggerFactory.getLogger(getClass.getName)
@@ -96,7 +97,7 @@ object CassSessionInstance extends CassSession{
   def dbReadBarsFaMeta(cp: Seq[ControlParams]): Seq[BarFaMeta] = {
     val s :Seq[barsFaSourceMeta] = ses.execute(prepBarsSourceFAMeta).all
       .iterator.asScala.toSeq.map(r => rowToFaSourceMeta(r))
-      .filter(elm => Seq(1/*,3*/).contains(elm.tickerId) && Seq(30/*,300*/).contains(elm.barWidthSec))
+      .filter(elm => Seq(1/*,3*/).contains(elm.tickerId) && Seq(30,300).contains(elm.barWidthSec))
       .distinct
      println(s"Distinct keys(tickerId,Bws) s=${s.size}")
     cp.flatMap(thisCp =>
@@ -150,32 +151,41 @@ object CassSessionInstance extends CassSession{
         .map(r => rowToBarFAData(r,fm.tickerId,fm.barWidthSec)).sortBy(_.ts_end)
     }
 
-  /*
-  def saveForms(seqForms : Seq[bForm]) = {
+
+  def saveForms(seqForms : Seq[BForm]) :Int = {
+    val savedSize :Int = seqForms.size
     seqForms.map(f => f.dDate).distinct.toList.collect {
       case  thisDdate =>
         val parts = seqForms.filter(tf => tf.dDate == thisDdate).grouped(100)//other limit 65535 for tiny rows.
         for(thisPartOfSeq <- parts) {
-          var batch = new BatchStatement(BatchStatement.Type.UNLOGGED)
+          val builder = BatchStatement.builder(DefaultBatchType.UNLOGGED)
           thisPartOfSeq.foreach {
             t =>
-              batch.add(prepSaveForm.bind()
+              builder.addStatement(prepSaveForm
                 .setInt("p_ticker_id", t.tickerId)
                 .setInt("p_bar_width_sec",t.barWidthSec)
-                .setDate("p_ddate", t.dDate)
+                .setLocalDate("p_ddate", t.dDate)
                 .setLong("p_ts_begin", t.TsBegin)
                 .setLong("p_ts_end", t.TsEnd)
                 .setDouble("p_log_oe",t.log_oe)
                 .setString("p_res_type",t.resType)
                 .setInt("p_formDeepKoef", t.formDeepKoef)
-                .setMap("p_FormProps", t.FormProps.asJava)
+                .setMap("p_FormProps",t.FormProps.asJava, classOf[java.lang.String], classOf[java.lang.String])
+                //.setMap("p_FormProps", t.FormProps, String, String)
               )
           }
-          session.execute(batch)
+          try {
+            val batch = builder.build()
+            ses.execute(batch)
+            batch.clear()
+          } catch {
+            case e: com.datastax.oss.driver.api.core.DriverException => throw e
+          }
         }
     }
+    savedSize
   }
-  */
+
 
 }
 

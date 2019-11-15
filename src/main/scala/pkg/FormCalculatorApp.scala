@@ -78,6 +78,7 @@ object FormCalculatorApp extends App {
             seqTicks.filter(t => t.db_tsunx >= (pairGroupBarFa._2.ts_end - faMeta.formDeepKoeff * pairGroupBarFa._2.barWidthSec * 1000L)
               && t.db_tsunx <= pairGroupBarFa._2.ts_end)
           )))
+
       } yield f
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {

@@ -30,9 +30,9 @@ object BForm {
    * Return price where VSA profile has maximum = PEAK
    * calculated by price frequency
    */
-  def getMaxRo(seqTicks :Seq[tinyTick]) :Double = {
-    val formCMin = seqTicks.map(_.ask).min          // total min price
-    val formCMax = seqTicks.map(_.ask).max          // total max price
+  def getMaxRo(seqTicks :Seq[tinyTick]) :BigDecimal = {
+    val formCMin :BigDecimal= seqTicks.map(_.ask).min          // total min price
+    val formCMax :BigDecimal= seqTicks.map(_.ask).max          // total max price
     val n = 10
     val rngCStep = (formCMax-formCMin)/n
 
@@ -40,7 +40,7 @@ object BForm {
       val rngC = formCMin.to(formCMax).by(rngCStep)
       val rangesC = rngC.zip(rngC.tail)
 
-      val rangeFreq: Seq[(Double, Int)] = rangesC.map(rng =>
+      val rangeFreq: Seq[(BigDecimal, Int)] = rangesC.map(rng =>
         (rng._1, seqTicks.count(t => t.ask >= rng._1 && t.ask <= rng._2)))
       rangeFreq.maxBy(r => r._2)._1
     } else formCMin
@@ -107,7 +107,7 @@ object BForm {
           else if (formEndC >= c2 && formEndC < c3) 2
           else 1
 
-          val cMaxRo: Double = getMaxRo(seqTicks)
+          val cMaxRo: BigDecimal = getMaxRo(seqTicks)
           val fc2: Int = if (cMaxRo >= c1 && cMaxRo <= c2) 3
           else if (cMaxRo >= c2 && cMaxRo < c3) 2
           else 1
