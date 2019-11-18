@@ -98,7 +98,7 @@ object CassSessionInstance extends CassSession{
   def dbReadBarsFaMeta(cp: Seq[ControlParams]): Seq[BarFaMeta] = {
     val s :Seq[barsFaSourceMeta] = ses.execute(prepBarsSourceFAMeta).all
       .iterator.asScala.toSeq.map(r => rowToFaSourceMeta(r))
-      .filter(elm => Seq(1/*,3*/).contains(elm.tickerId) && Seq(30,300).contains(elm.barWidthSec))
+      //.filter(elm => Seq(1/*,3*/).contains(elm.tickerId) && Seq(30,300).contains(elm.barWidthSec)) ////////////
       .distinct
      println(s"Distinct keys(tickerId,Bws) s=${s.size}")
     cp.flatMap(thisCp =>
