@@ -29,8 +29,8 @@ object FormCalculatorApp extends App {
   val tc1 = System.currentTimeMillis
 
   private val controlParams: Seq[ControlParams] =
-    Seq(0.0012 , 0.0025, 0.0050).flatMap(
-      precent => Seq("mx", "mn").map(
+    Seq(0.0012 /*, 0.0025, 0.0050*/).flatMap( // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      precent => Seq("mx"/*, "mn"*/).map(     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         resType => ControlParams(6, 2, precent, resType)))
 
   val fcInst :FormCalculator.type = FormCalculator
@@ -81,6 +81,8 @@ object FormCalculatorApp extends App {
         rowsCounts <- s.saveForms(formsRows)
       } yield rowsCounts
 
+
+
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
     val seqFaMeta: Seq[BarFaMeta] = rt.unsafeRun(FaMmetaReader(ses))
@@ -89,14 +91,14 @@ object FormCalculatorApp extends App {
     val cni: Seq[ZIO[Console, Nothing, Int]] =
           seqFaMeta.sortBy(f => (f.tickerId,f.barWidthSec,f.percentLogOE)).map(
             faMeta => {
-              val t1 = System.currentTimeMillis
+              //val t1 = System.currentTimeMillis
               app(ses, faMeta).fold(
                 f => {
                   println(s"fail f=$f message=${f.getMessage} cause=${f.getCause}");
                   0
                 },
                 s => {
-                  println(s"success duration=${(System.currentTimeMillis - t1)} ms.");
+                  //println(s"success duration=${(System.currentTimeMillis - t1)} ms.");
                   println(s"for Forms = ${faMeta} s.size=${s.size}")
                   s.size
                 }
