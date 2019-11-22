@@ -29,8 +29,8 @@ object FormCalculatorApp extends App {
   val tc1 = System.currentTimeMillis
 
   private val controlParams: Seq[ControlParams] =
-    Seq(0.0012 /*, 0.0025, 0.0050*/).flatMap( // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      precent => Seq("mx"/*, "mn"*/).map(     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    Seq(0.0012 , 0.0025, 0.0050).flatMap( // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      precent => Seq("mx", "mn").map(     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         resType => ControlParams(6, 2, precent, resType)))
 
   val fcInst :FormCalculator.type = FormCalculator
@@ -43,26 +43,6 @@ object FormCalculatorApp extends App {
       s <- ses
       r <- fcInst.readBarsFaMeta(s, controlParams)
     } yield r
-
-  /*
-  private val calcForm: (Task[CassSessionInstance.type],BarFa, Int, Seq[tinyTick]) => Task[BForm] =
-    (ses, bf, formDeepKoef, st) =>
-      for {
-        s <- ses
-        frm <- fcInst.createForm(bf, formDeepKoef, st)
-      } yield frm
-  */
-
-
-
-/*
-  private val TicksReader: (Task[CassSessionInstance.type], BarFa, BarFa) => Task[Seq[tinyTick]] =
-    (ses, fb, lb) =>
-    for {
-      s <- ses
-      ticks <- fcInst.readAllTicksForForms(s,fb,lb)
-    } yield ticks
-  */
 
   private val app: (Task[CassSessionInstance.type], BarFaMeta) => ZIO[Console, Throwable, Seq[Int]] =
     (ses,faMeta) =>
@@ -80,8 +60,6 @@ object FormCalculatorApp extends App {
           )))
         rowsCounts <- s.saveForms(formsRows)
       } yield rowsCounts
-
-
 
   def run(args: List[String]): ZIO[Console, Nothing, Int]= {
     val ses = Task(CassSessionInstance)
