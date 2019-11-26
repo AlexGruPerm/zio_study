@@ -1,5 +1,5 @@
 import zio._
-import zio.duration._
+import zio.console._
 
 /*
 import zio._
@@ -21,20 +21,35 @@ class ExcCantConnDb(message: String) extends Exception(message) {
 case class User(id: Long, email: String, name: String)
 type Error = String with Serializable with Throwable
 
-val searchUserAccount : (String,Long) => Task[User] = (email,ts) =>
+
+val searchUserAccount : Long => ZIO[Console, Throwable, User]
+/* type Task[+A] = ZIO[Any, Throwable, A]*/
+ = ts =>
   for {
     i :Int <- Task(r.nextInt(50))
-    _ <- IO.effect(println(s"searchUserAccount i=$i"))
-    _ <- IO.effect(println(s" -------- ${(System.currentTimeMillis()-ts)/1000L} ms."))
-    r <- {
-      if (i <= 5)
-       ZIO.succeed(User(1L, "wile@acme.com", "Will"))
-      else
-        ZIO.fail(new ExcCantConnDb("User not in our database."))
-    }
+    sucUpBnd :Int <- Task(25)
+    _ <- putStrLn(s" searchUserAccount  ${(System.currentTimeMillis()-ts)/1000L} ms. i=$i")
+    _ <- if (i <= sucUpBnd)
+           putStrLn("Success")
+         else
+           putStrLn("--- Failure ---")
+    r <- if (i <= sucUpBnd)
+           /*ZIO.succeed*/Task(User(1L, "wile@acme.com", "Will"))
+         else
+           ZIO.fail(new ExcCantConnDb("User not found in database."))
+    //r <- ZIO.fail(new ExcCantConnDb("User not in our database."))
+    //r <- ZIO.succeed(User(1L, "wile@acme.com", "Will"))
   } yield r
 
-//https://github.com/zio/zio/blob/master/docs/datatypes/schedule.md
+
+
+val searchUserAccountFailHandler : (Throwable,Option[Any]) => Task[Any]
+ = (throwE,optUser) => for {
+    _ <- IO.effect(println(s"searchUserAccountFailHandler"))
+   // r <- ZIO.succeed(User(1L, "default@def.com", "DefaultUser"))
+    r <- IO.effect(new ExcCantConnDb("User not in default secondary database."))
+} yield r
+
 //https://github.com/zio/zio/blob/master/docs/datatypes/schedule.md !!!
 /**
  * Retry:
@@ -43,19 +58,21 @@ val searchUserAccount : (String,Long) => Task[User] = (email,ts) =>
  * IO.forever — Repeats the action until the first failure.
  * IO.retry — Repeats the action until the first success.
 */
+
 (new zio.DefaultRuntime {}).unsafeRun(
-      for {
-        start :Long <- Task(System.currentTimeMillis())
-        _ <- IO.effect(println(s"start = $start"))
+  (for {
+        start :Long <- zio.Task(System.currentTimeMillis())
+        _ <- zio.IO.effect(println(s"start = $start"))
         user <-
-          searchUserAccount("wile@acme.com",start)
-            .retry(
-              Schedule.exponential(10.milliseconds) &&
-                Schedule.elapsed.whileOutput(_ < 3.seconds)
-            ) //fast 5 calls
-            //.repeat(Schedule.spaced(5.seconds))
-      } yield user
+          searchUserAccount(start)
+            .repeatOrElse(Schedule.recurs(50),searchUserAccountFailHandler)
+      } yield user)
+    .catchAll(e => console.putStrLn(s"Application run failed $e").as(1))
 )
+
+//Schedule.spaced(1.second) && Schedule.recurs(5)
+//https://zio.dev/docs/datatypes/datatypes_schedule
+
 
 /** ==============================================================================
  * Repeats - выполнять пока не закончится расписание.,
@@ -63,14 +80,16 @@ val searchUserAccount : (String,Long) => Task[User] = (email,ts) =>
  * М.б. один вызов и сразу исключение.
  * ===============================================================================
  *
- *  Repeats this effect with the specified schedule until the schedule
- *  completes, or until the first failure.
+ * Retries with the specified retry policy.
+ * Retries are done following the failure of the original `io` (up to a fixed maximum with
+ * `once` or `recurs` for example), so that that `io.retry(Schedule.once)` means
+ * "execute `io` and in case of failure, try again once".
  *
- * ===============================================================================
- * Repeat :
- * in case of failure, try again
  *
- * ===============================================================================
+ * ?????
+ *
+ *               Schedule.exponential(10.milliseconds) &&
+ *                 Schedule.elapsed.whileOutput(_ < 3.seconds)
  *
 */
 
